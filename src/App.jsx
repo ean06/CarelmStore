@@ -1337,15 +1337,37 @@ function FinanceView({ T, state, patch, computed }) {
       </Card>
 
       <Modal T={T} open={!!modal} onClose={() => setModal(null)} title={modal && state.transactions.some((x) => x.id === modal.id) ? "Edit transaksi" : "Transaksi baru"}>
-        {modal && <TxForm T={T} value={modal} onSave={save} />}
+        {modal && <TxForm T={T} value={modal} services={state.services} onSave={save} />}
       </Modal>
     </div>
   );
 }
-function TxForm({ T, value, onSave }) {
+function TxForm({ T, value, services = [], onSave }) {
   const [f, setF] = useState(value);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
   const up = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const cats = f.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+  const isRevenueCategory =
+    f.type === "income" &&
+    f.category &&
+    (f.category.toLowerCase().includes("revenue") || f.category === "Service Revenue");
+
+  const handleServiceChange = (e) => {
+    const serviceId = e.target.value;
+    setSelectedServiceId(serviceId);
+    if (!serviceId) return;
+
+    const selectedService = services.find((s) => s.id === serviceId);
+    if (selectedService) {
+      setF((prev) => ({
+        ...prev,
+        amount: selectedService.price,
+        note: prev.note ? prev.note : `Service: ${selectedService.name}`,
+      }));
+    }
+  };
+
   return (
     <div>
       <Field T={T} label="Tipe">
@@ -1357,6 +1379,20 @@ function TxForm({ T, value, onSave }) {
         <Field T={T} label="Kategori"><Select T={T} value={f.category} onChange={up("category")}>{cats.map((c) => <option key={c}>{c}</option>)}</Select></Field>
         <Field T={T} label="Tanggal"><Input T={T} type="date" value={f.date} onChange={up("date")} /></Field>
       </div>
+
+      {isRevenueCategory && (
+        <Field T={T} label="Pilih Service">
+          <Select T={T} value={selectedServiceId} onChange={handleServiceChange}>
+            <option value="">-- Pilih Service --</option>
+            {services.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({fmtIDR(s.price)})
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
       <Field T={T} label="Jumlah (Rp)"><Input T={T} type="number" value={f.amount} onChange={up("amount")} /></Field>
       <Field T={T} label="Catatan"><TextArea T={T} value={f.note} onChange={up("note")} /></Field>
       <Btn T={T} onClick={() => onSave(f)} style={{ width: "100%" }}>Simpan transaksi</Btn>
